@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>5x5 Sliding Puzzle CTF</title>
+  <style>
+    body {
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 60px);
+      grid-template-rows: repeat(5, 60px);
+      gap: 5px;
+      justify-content: center;
+    }
+    .tile {
+      background: #444;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+    }
+    .empty {
+      background: transparent;
+      cursor: default;
+    }
+    .flag {
+      margin-top: 20px;
+      padding: 15px;
+      background: green;
+      color: white;
+      font-family: monospace;
+      font-size: 18px;
+      display: none;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>5x5 Sliding Puzzle Challenge</h1>
+  <div class="grid" id="puzzle"></div>
+  <div id="flag" class="flag"></div>
+
+  <script>
+    const size = 5;
+    const total = size * size;
+    let tiles = [...Array(total).keys()];
+    const grid = document.getElementById("puzzle");
+    const flagDiv = document.getElementById("flag");
+
+    // 🔄 Shuffle function (Ensures solvable puzzle)
+    function shuffle(array) {
+      let shuffled;
+      do {
+        shuffled = array.slice();
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
+      } while (!isSolvable(shuffled));
+      return shuffled;
+    }
+
+    function isSolvable(arr) {
+      let inv = 0;
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          if (arr[i] && arr[j] && arr[i] > arr[j]) inv++;
+        }
+      }
+      let emptyRow = Math.floor(arr.indexOf(0) / size);
+      return (inv + emptyRow) % 2 === 0;
+    }
+
+    function render() {
+      grid.innerHTML = "";
+      tiles.forEach((val, i) => {
+        const tile = document.createElement("div");
+        tile.className = "tile";
+        if (val === 0) {
+          tile.classList.add("empty");
+        } else {
+          tile.textContent = val;
+          tile.onclick = () => move(i);
+        }
+        grid.appendChild(tile);
+      });
+
+      if (isSolved()) {
+        requestFlag();
+      }
+    }
+
+    function move(index) {
+      const emptyIndex = tiles.indexOf(0);
+      const row = Math.floor(index / size);
+      const col = index % size;
+      const emptyRow = Math.floor(emptyIndex / size);
+      const emptyCol = emptyIndex % size;
+
+      if (
+        (row === emptyRow && Math.abs(col - emptyCol) === 1) ||
+        (col === emptyCol && Math.abs(row - emptyRow) === 1)
+      ) {
+        [tiles[emptyIndex], tiles[index]] = [tiles[index], tiles[emptyIndex]];
+        render();
+      }
+    }
+
+    function isSolved() {
+      return tiles.every((val, idx) => val === idx);
+    }
+
+    // 🔥 Load Web Worker for flag storage
+    const worker = new Worker("worker.js");
+    
+    function requestFlag() {
+      worker.postMessage("getFlag");
+    }
+
+    worker.onmessage = function (event) {
+      if (event.data.startsWith("CTF{")) {
+        flagDiv.textContent = event.data;
+        flagDiv.style.display = "block";
+      }
+    };
+
+    // Start puzzle
+    tiles = shuffle(tiles);
+    render();
+  </script>
+</body>
+</html>
